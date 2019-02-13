@@ -7,52 +7,67 @@ from networktables import NetworkTables
 import cscore 
 
 active = True
-camera = cv2.VideoCapture(0)
-setupframe = camera.read()
-balloffset = 0
-balldistance = 0
-paneloffset = 0
-paneldistance = 0
+camera1 = cv2.VideoCapture(0)
+camera2 = cv2.VideoCapture("http://axis-camera.local")
+ballx, bally, ballw, ballh, ballarea = 0,0,0,0
+reflectorx, reflectory, reflectorw, relfectorh, reflectorarea = 0,0,0,0
+ballfound = False
+reflectorfound = False
 NetworkTables.initialize(server='roborio-3405-frc.local')
 table = NetworkTables.getTable('SmartDashboard')
-cameraserver = cscore.CameraServer.putVideo('camera1', len(setupframe[1]), len(setupframe))
+cs = cscore.CameraServer.getInstance()
+videoout1 = cs.putVideo('camera1', 640, 480)
+videoout2 = cs.putVideo('camera2', 640, 480)
+
+def outputvideo():
+    ret1, frame1 = camera1.read()
+    ret2, frame2 = camera2.read()
+    if ret1:
+        videoout1.putFrame(frame1)
+    if ret2:
+        videoout2.putFrame(frame2)  
 
 #listner for network table
-def listener():
+def updater():
     while active:
-        if table.getBoolean('tick', False) == True:
-            table.putBoolean('tick', False)
-            table.putNumber('balloffset', balloffset)
-            table.putNumber('balldistance', balldistance)
-            table.putNumber('paneloffset', paneloffset)
-            table.putNumber('paneldistance', paneldistance)
+        #if table.getBoolean('tick', False) == True:
+        table.putBoolean('tick', False)
+        table.putNumber('ballx', ballx)
+        table.putNumber('bally', bally)
+        table.putNumber('ballw', ballw)
+        table.putNumber('ballh', ballh)
+        table.putNumber('ballarea', ballarea)
+        table.putBoolean('ballfound', ballfound)
+        table.putNumber('reflectorx', reflectorx)
+        table.putNumber('reflectory', reflectory)
+        table.putNumber('reflectorw', reflectorw)
+        table.putNumber('reflectorh', reflectorh)
+        table.putNumber('reflectorarea', reflectorarea)
+        table.putBoolean('reflectorfound', reflectorfound)
+        outputvideo()
         time.sleep(.05)
 
 #game piece offset
 def gamePieceOffset(camera, type):
-    result = 0
-    if type == "ball":
-        upmask = numpy.array([20, 125, 255])
-        downmask = numpy.array([0, 50, 150])
-    elif type == "panel":
-        upmask = numpy.array([100 ,255, 255])
-        downmask = numpy.array([0 ,150 ,150])
-    else:
-        return False
+    upmask = numpy.array([20, 125, 255])
+    downmask = numpy.array([0, 50, 150])
     
     ret, frame = camera.read()
+
     if ret == False:
         return False
     
     mask = cv2.inRange(frame, downmask, upmask)
-    smallmask = cv2.resize(mask, (0,0), fx=.1, fy=.1, interpolation=cv2.INTER_LINEAR)
-    width = len(smallmask[0])
 
-    for index, x in numpy.ndenumerate(smallmask):
-        if x > 120:
-            result = result + index[1] - width/2
-    
-    return result
+    None, countours, None = cv2.findContours(mask, mode=cv2.RETR_LIST, method=cv2.CHAIN_APPROX_SIMPLE)
+
+    if not contours == None:
+        contours.sort(key=lambda contour: cv2.contourArea(contour))
+        ballx, bally, ballw, ballh = cv2.boundingRect(countours[0])
+        ballarea = cv2.contourArea
+        return True
+    else:
+        return False
 
 #hatch panel tape offset
 def reflectorFinder(camera):
@@ -60,17 +75,17 @@ def reflectorFinder(camera):
     downmask = numpy.array([73, 161, 138])
     
     ret, frame = camera.read()
+    
     if ret == False:
         return False
-    bgr = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    mask = cv2.inRange(bgr, downmask, upmask)
+    mask = cv2.inRange(hsv, downmask, upmask)
 
-    stuff, contours, hirearchy = cv2.findContours(mask, mode=cv2.RETR_LIST, method=cv2.CHAIN_APPROX_SIMPLE)
-
-    goodContours = []
-    specs = []
-    offset = 0
+    None, contours, None = cv2.findContours(mask, mode=cv2.RETR_LIST, method=cv2.CHAIN_APPROX_SIMPLE)
+    
+    goodcontours = []
     for contour in contours:
         #variables
         x, y, w, h = cv2.boundingRect(contour)
@@ -78,21 +93,24 @@ def reflectorFinder(camera):
         ratio = float(w/h)
         #test
         if (area > 20 and ratio < .7):
-            goodContours.append(cv2.convexHull(contour))
-            specs.append([x, y, w, h])
-            offset = offset + (contour[0] - len(mask[1]))
-    
-    return offset
+            goodcontours.append([x, y, w, h, area])
+        
+    goodcontours.sort(key=lambda contour: contour[5])
+`   
+    if len(goodcontours) > 0:
+        reflectorx, reflectory, reflectorw, reflectorh, reflectorarea = goodcontours[0]
+        return True
+    else:
+        return False
 
 #init
 
-listenerthread = threading.Thread(target=listener, name="listner")
-listenerthread.start()
+updaterthread = threading.Thread(target=updater, name="updater")
+updaterthread.start()
 
 while active:
-    balloffset = gamePieceOffset(camera, "ball")
-    paneloffset = reflectorFinder(camera)
-    cameraserver.putFrame(camera.read())
+    ballfound = gamePieceOffset(camera)
+    reflectorfound = reflectorFinder(camera)
     time.sleep(.05)
 
 
