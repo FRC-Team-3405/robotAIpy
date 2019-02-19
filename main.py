@@ -8,7 +8,7 @@ import cscore
 
 active = True
 camera1 = cv2.VideoCapture(0)
-#camera2 = cv2.VideoCapture("http://axis-camera.local")
+camera2 = cv2.VideoCapture("http://axis-camera.local")
 ballx, bally, ballw, ballh, ballarea = 0,0,0,0,0
 reflectorx, reflectory, reflectorw, reflectorh, reflectorarea = 0,0,0,0,0
 ballfound = False
@@ -24,19 +24,17 @@ def getkey(item):
 
 def outputvideo():
     ret1, frame1 = camera1.read()
-    #ret2, frame2 = camera2.read()
+    ret2, frame2 = camera2.read()
     if ret1:
         frame1 = cv2.resize(frame1, (320, 240))
         #frame1 = cv2.cvtColor(frame1, cv2.COLOR_RGB2GRAY)
         videoout1.putFrame(frame1)
-    #if ret2:
-     #   videoout2.putFrame(frame2)  
+    if ret2:
+        frame2 = cv2.resize(frame2, (320, 240))
+        videoout2.putFrame(frame2)  
 
-#listner for network table
 def updater():
     while active:
-        #if table.getBoolean('tick', False) == True:
-        table.putBoolean('tick', False)
         table.putNumber('ballx', ballx - size[0]/2)
         table.putNumber('bally', bally - size[1]/2)
         table.putNumber('ballw', ballw)
@@ -49,8 +47,6 @@ def updater():
         table.putNumber('reflectorh', reflectorh)
         table.putNumber('reflectorarea', reflectorarea)
         table.putBoolean('reflectorfound', reflectorfound)
-        outputvideo()
-        time.sleep(.05)
 
 #game piece offset
 def gamePieceOffset(camera):
@@ -117,9 +113,12 @@ def reflectorFinder(camera):
 updaterthread = threading.Thread(target=updater, name="updater")
 updaterthread.start()
 
+outputvideothread = threading.Thread(target=outputvideo, name="outputvideo")
+outputvideothread.start()
+
 while active:
     ball = gamePieceOffset(camera1)
-    reflector = reflectorFinder(camera1)
+    reflector = reflectorFinder(camera2)
     
     if ball[0] == True:
         ballx, bally, ballw, ballh, ballarea = ball[1:]
@@ -133,7 +132,3 @@ while active:
     else:
         reflectorfound = False
     time.sleep(.05)
-
-
-camera.release()
-cv2.destroyAllWindows()
