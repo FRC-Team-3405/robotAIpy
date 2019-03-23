@@ -18,6 +18,8 @@ table = NetworkTables.getTable('SmartDashboard')
 cs = cscore.CameraServer.getInstance()
 videoout1 = cs.putVideo('camera1', 640, 480)
 videoout2 = cs.putVideo('camera2', 640, 480)
+shadeout1 = cs.putVideo('mask1', 180, 135)
+shadeout1 = cs.putVideo('mask1', 180, 135)
 size = (1920, 1080)
 def getkey(item):
     item[4]
@@ -60,7 +62,8 @@ def gamePieceOffset(camera):
     
     frame = cv2.resize(frame, size)
     mask = cv2.inRange(frame, downmask, upmask)
-
+    mask1 = cv2.resize(mask1, (180, 135))
+    shadeout1.putFrame(mask1)
     rand1, contours, rand2 = cv2.findContours(mask, mode=cv2.RETR_LIST, method=cv2.CHAIN_APPROX_SIMPLE)
 
     if len(contours) > 0:
@@ -85,7 +88,8 @@ def reflectorFinder(camera):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     mask = cv2.inRange(hsv, downmask, upmask)
-
+    mask1 = cv2.resize(mask1, (180, 135))
+    shadeout2.putFrame(mask1)
     rand3, contours, rand4 = cv2.findContours(mask, mode=cv2.RETR_LIST, method=cv2.CHAIN_APPROX_SIMPLE)
     
     goodcontours = []
