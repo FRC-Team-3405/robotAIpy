@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 import numpy 
 import time 
-import threading
+import threading, multiprocessing
 import cv2
 from networktables import NetworkTables
 import cscore 
 
 active = True
 camera1 = cv2.VideoCapture(0)
-camera2 = cv2.VideoCapture("http://axis-camera.local")
+#camera2 = cv2.VideoCapture("http://axis-camera.local")
 ballx, bally, ballw, ballh, ballarea = 0,0,0,0,0
 reflectorx, reflectory, reflectorw, reflectorh, reflectorarea = 0,0,0,0,0
 ballfound = False
@@ -19,22 +19,24 @@ cs = cscore.CameraServer.getInstance()
 videoout1 = cs.putVideo('camera1', 640, 480)
 videoout2 = cs.putVideo('camera2', 640, 480)
 shadeout1 = cs.putVideo('mask1', 180, 135)
-shadeout1 = cs.putVideo('mask1', 180, 135)
+shadeout1 = cs.putVideo('mask2', 180, 135)
 size = (1920, 1080)
 def getkey(item):
     item[4]
 
 def outputvideo():
-    ret1, frame1 = camera1.read()
-    ret2, frame2 = camera2.read()
-    if ret1:
-        frame1 = cv2.resize(frame1, (320, 240))
-        #frame1 = cv2.cvtColor(frame1, cv2.COLOR_RGB2GRAY)
-        videoout1.putFrame(frame1)
-    if ret2:
-        frame2 = cv2.resize(frame2, (320, 240))
-        videoout2.putFrame(frame2)  
+    while active:
+        ret1, frame1 = camera1.read()
+        ret2=False
+        #ret2, frame2 = camera2.read()
+        if ret1:
+            frame1 = cv2.resize(frame1, (320, 240))
+            videoout1.putFrame(frame1)
+        if ret2:
+            frame2 = cv2.resize(frame2, (320, 240))
+            videoout2.putFrame(frame2)  
 
+    time.sleep(.03)
 def updater():
     while active:
         table.putNumber('ballx', ballx - size[0]/2)
@@ -49,7 +51,7 @@ def updater():
         table.putNumber('reflectorh', reflectorh)
         table.putNumber('reflectorarea', reflectorarea)
         table.putBoolean('reflectorfound', reflectorfound)
-
+    time.sleep(.03)
 #game piece offset
 def gamePieceOffset(camera):
     upmask = numpy.array([20, 125, 255])
@@ -61,9 +63,11 @@ def gamePieceOffset(camera):
         return [False]
     
     frame = cv2.resize(frame, size)
+    
     mask = cv2.inRange(frame, downmask, upmask)
-    mask1 = cv2.resize(mask1, (180, 135))
+    mask1 = cv2.resize(mask, (180, 135))
     shadeout1.putFrame(mask1)
+    
     rand1, contours, rand2 = cv2.findContours(mask, mode=cv2.RETR_LIST, method=cv2.CHAIN_APPROX_SIMPLE)
 
     if len(contours) > 0:
@@ -88,7 +92,7 @@ def reflectorFinder(camera):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     mask = cv2.inRange(hsv, downmask, upmask)
-    mask1 = cv2.resize(mask1, (180, 135))
+    mask1 = cv2.resize(mask, (180, 135))
     shadeout2.putFrame(mask1)
     rand3, contours, rand4 = cv2.findContours(mask, mode=cv2.RETR_LIST, method=cv2.CHAIN_APPROX_SIMPLE)
     
@@ -122,17 +126,17 @@ outputvideothread.start()
 
 while active:
     ball = gamePieceOffset(camera1)
-    reflector = reflectorFinder(camera2)
-    
+    #reflector = reflectorFinder(camera2)
+
     if ball[0] == True:
         ballx, bally, ballw, ballh, ballarea = ball[1:]
         ballfound = True
     else:
         ballfound = False
 
-    if reflector[0] == True:
+    '''if reflector[0] == True:
         reflectorx, reflectory, reflectorw, reflectorh, reflectorarea = reflector[1:]
         reflectorfound = True
     else:
-        reflectorfound = False
-    time.sleep(.05)
+        reflectorfound = False'''
+    time.sleep(1)
