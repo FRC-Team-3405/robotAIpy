@@ -9,8 +9,8 @@ import cscore
 active = True
 camera1 = cv2.VideoCapture(0)
 #camera2 = cv2.VideoCapture("http://axis-camera.local")
-ballx, bally, ballw, ballh, ballarea = 0,0,0,0,0
-reflectorx, reflectory, reflectorw, reflectorh, reflectorarea = 0,0,0,0,0
+ballx, bally, ballw, ballh, ballarea = 0, 0, 0, 0, 0
+reflectorx, reflectory, reflectorw, reflectorh, reflectorarea = 0, 0, 0, 0, 0
 ballfound = False
 reflectorfound = False
 NetworkTables.initialize(server='roborio-3405-frc.local')
@@ -19,15 +19,18 @@ cs = cscore.CameraServer.getInstance()
 videoout1 = cs.putVideo('camera1', 640, 480)
 videoout2 = cs.putVideo('camera2', 640, 480)
 shadeout1 = cs.putVideo('mask1', 180, 135)
-shadeout1 = cs.putVideo('mask2', 180, 135)
+shadeout2 = cs.putVideo('mask2', 180, 135)
 size = (1920, 1080)
+
+
 def getkey(item):
-    item[4]
+    return item[4]
+
 
 def outputvideo():
     while active:
         ret1, frame1 = camera1.read()
-        ret2=False
+        ret2 = False
         #ret2, frame2 = camera2.read()
         if ret1:
             frame1 = cv2.resize(frame1, (320, 240))
@@ -37,6 +40,8 @@ def outputvideo():
             videoout2.putFrame(frame2)  
 
     time.sleep(.03)
+
+
 def updater():
     while active:
         table.putNumber('ballx', ballx - size[0]/2)
@@ -52,14 +57,16 @@ def updater():
         table.putNumber('reflectorarea', reflectorarea)
         table.putBoolean('reflectorfound', reflectorfound)
     time.sleep(.03)
-#game piece offset
+
+
+# game piece offset
 def gamePieceOffset(camera):
     upmask = numpy.array([20, 125, 255])
     downmask = numpy.array([0, 50, 150])
     
     ret, frame = camera.read()
 
-    if ret == False:
+    if not ret:
         return [False]
     
     frame = cv2.resize(frame, size)
@@ -78,14 +85,15 @@ def gamePieceOffset(camera):
     else:
         return [False]
 
-#hatch panel tape offset
+
+# hatch panel tape offset
 def reflectorFinder(camera):
     upmask = numpy.array([102, 255, 255])
     downmask = numpy.array([73, 161, 138])
     
     ret, frame = camera.read()
     
-    if ret == False:
+    if not ret:
         return [False]
     
     frame = cv2.resize(frame, size)
@@ -98,25 +106,25 @@ def reflectorFinder(camera):
     
     goodcontours = []
     for contour in contours:
-        #variables
+        # variables
         x, y, w, h = cv2.boundingRect(contour)
         area = cv2.contourArea(contour)
         ratio = float(w/h)
-        #test
-        if (area > 20 and ratio < .7):
+        # test
+        if area > 20 and ratio < .7:
             goodcontours.append([x, y, w, h, area])
         
     goodcontours.sort(key=getkey)
 
     if len(goodcontours) > 1:
         reflectorx = (goodcontours[0][0] + goodcontours[1][0])/2
-        reflectory = (goodcontours[0][1] + goodcontours[1][1]) 
+        reflectory = (goodcontours[0][1] + goodcontours[1][1])/2
         reflectorw, reflectorh, reflectorarea = goodcontours[0][2:]
         return [True, reflectorx, reflectory, reflectorw, reflectorh, reflectorarea]
     else:
         return [False]
 
-#init
+# init
 
 updaterthread = threading.Thread(target=updater, name="updater")
 updaterthread.start()
@@ -128,13 +136,13 @@ while active:
     ball = gamePieceOffset(camera1)
     #reflector = reflectorFinder(camera2)
 
-    if ball[0] == True:
+    if ball[0]:
         ballx, bally, ballw, ballh, ballarea = ball[1:]
         ballfound = True
     else:
         ballfound = False
 
-    '''if reflector[0] == True:
+    '''if reflector[0]:
         reflectorx, reflectory, reflectorw, reflectorh, reflectorarea = reflector[1:]
         reflectorfound = True
     else:
